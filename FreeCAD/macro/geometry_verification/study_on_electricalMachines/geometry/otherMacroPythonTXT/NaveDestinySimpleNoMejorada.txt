@@ -1,0 +1,119 @@
+import FreeCAD as App
+import Part
+from FreeCAD import Vector
+
+doc = App.newDocument("Nave_Destiny")
+
+# ---------------------------
+# Funciones auxiliares
+# ---------------------------
+def add_obj(shape, name, color=(0.8,0.8,0.8)):
+    obj = doc.addObject("Part::Feature", name)
+    obj.Shape = shape
+    obj.ViewObject.ShapeColor = color
+    return obj
+
+def make_shell_from_solid(solid, thickness):
+    # Aplica espesor hacia adentro
+    return solid.makeThickness(solid.Faces, -thickness, 1e-3)
+
+# ---------------------------
+# 1) Fuselaje exterior
+# ---------------------------
+nose = Part.makeCone(300, 0, 800)  # radios en mm/2
+nose.translate(Vector(0,0,0))
+
+mid = Part.makeCylinder(450, 1400)
+mid.translate(Vector(0,0,800))
+
+rear = Part.makeCylinder(600, 800)
+rear.translate(Vector(0,0,2200))
+
+hull_solid = nose.fuse(mid).fuse(rear)
+hull_shell = make_shell_from_solid(hull_solid, 10)
+add_obj(hull_shell, "Hull", (0.7,0.7,0.9))
+
+# ---------------------------
+# 2) Cabina interior
+# ---------------------------
+cockpit = Part.makeBox(900, 600, 400)  # ancho, largo, alto
+cockpit.translate(Vector(-450, -300, 600))  # centrado en Y, Z=600
+add_obj(cockpit, "Cockpit", (0.9,0.8,0.6))
+
+# ---------------------------
+# 3) Reactor
+# ---------------------------
+reactor = Part.makeCylinder(400, 900)
+reactor.translate(Vector(0,0,2150))
+add_obj(reactor, "Reactor", (0.6,0.6,0.6))
+
+# Anillos estructurales
+for i in range(6):
+    zpos = 2150 + i*150
+    ring = Part.makeCylinder(420, 30) \
+        .cut(Part.makeCylinder(380, 30))
+    ring.translate(Vector(0,0,zpos))
+    add_obj(ring, f"ReactorRing_{i}", (0.8,0.5,0.3))
+
+# Coils superconductores
+for i in range(4):
+    zpos = 2150 + i*(900/3)
+    coil = Part.makeTorus(400, 40)
+    coil.translate(Vector(0,0,zpos))
+    add_obj(coil, f"Coil_{i}", (0.3,0.3,0.8))
+
+# ---------------------------
+# 4) Boquilla magnética
+# ---------------------------
+nozzle = Part.makeCone(150, 450, 700)
+nozzle.translate(Vector(0,0,2500))
+add_obj(nozzle, "Nozzle", (0.8,0.8,0.5))
+
+# ---------------------------
+# 5) Blindaje
+# ---------------------------
+# Moderador
+moderator = Part.makeCylinder(500, 1100) \
+    .cut(Part.makeCylinder(420, 1100))
+moderator.translate(Vector(0,0,2050))
+add_obj(moderator, "Moderator", (0.5,0.8,0.5))
+
+# Tungsteno posterior
+tungsten_ring = Part.makeCylinder(460, 50) \
+    .cut(Part.makeCylinder(450, 50))
+tungsten_ring.translate(Vector(0,0,2950))
+add_obj(tungsten_ring, "TungstenRing", (0.5,0.5,0.5))
+
+# ---------------------------
+# 6) Tanques de fuel
+# ---------------------------
+for side in [-1, 1]:
+    tank = Part.makeCylinder(150, 700)
+    tank.translate(Vector(0, side*300, -150))
+    tank.translate(Vector(1600,0,0))
+    add_obj(tank, f"Tank_{'L' if side<0 else 'R'}", (0.9,0.9,0.6))
+
+# ---------------------------
+# 7) Tren de aterrizaje
+# ---------------------------
+for posX in [1050, 1950]:
+    for side in [-1, 1]:
+        leg = Part.makeCylinder(40, 400)
+        leg.translate(Vector(posX, side*600, 0))
+        add_obj(leg, f"Leg_{posX}_{side}", (0.6,0.6,0.6))
+
+# ---------------------------
+# 8) Aletas / alas cortas
+# ---------------------------
+# Ala central
+wing_profile = Part.makeBox(450, 600, 20)
+wing_profile.translate(Vector(1500, -300, 0))
+add_obj(wing_profile, "Wing", (0.6,0.8,0.9))
+
+# Empeñaje vertical
+tail = Part.makeBox(200, 20, 400)
+tail.translate(Vector(2800, 0, 0))
+add_obj(tail, "Tail", (0.6,0.8,0.9))
+
+doc.recompute()
+print("Macro completada: modelo generado con primitivas y posiciones.")
